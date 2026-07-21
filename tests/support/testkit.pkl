@@ -24,18 +24,18 @@ open class TestAction extends action.Action {
 
 /// Action with a typed output — the mandatory plugin convention:
 /// outputs are exposed as hidden typed fields so users write
-/// `startCluster.outEndpoint` (IDE-navigable; a typo is an eval
+/// `startCluster.endpoint` (IDE-navigable; a typo is an eval
 /// error), never the stringly `output("...")` factory.
 class ClusterStart extends TestAction {
-  outEndpoint = output("endpoint")
+  endpoint = output("endpoint")
 }
 
 /// Action with a typed artifact, same convention.
 class SuiteRun extends TestAction {
-  artReport = artifact("report")
+  report = artifact("report")
 }
 
 /// Artifact-publishing cleanup helper, same typed-field convention.
 class LogCollect extends TestAction {
-  artLogs = artifact("logs")
+  logs = artifact("logs")
 }

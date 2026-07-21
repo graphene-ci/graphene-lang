@@ -42,6 +42,6 @@ defines the typed model and its generated bindings.
   core or fixtures is a defect (hermetic eval).
 
 - Published contract convention: one field per output/artifact
-  (`outX = output("x")`, `artY = artifact("y")`); declared sets are
+  (`x = output("x")`, `y = artifact("y")` — field name equals wire name, verified); declared sets are
   derived from the fields and the field name is verified against the
   wire name. Never add a parallel listing.

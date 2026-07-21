@@ -8,18 +8,21 @@
 /// typed schema (subclasses).
 ///
 /// PUBLISHED CONTRACT — single-declaration convention: a concrete
-/// action class declares each output/artifact as ONE field:
+/// action class declares each output/artifact as ONE field named
+/// exactly like the output:
 ///
 ///   class Push extends DockerAction {
-///     outDigest = output("digest")
-///     artLog = artifact("log")
+///     digest = output("digest")
+///     log = artifact("log")
 ///   }
 ///
-/// Users reference `push.outDigest` — IDE-navigable; a typo is an eval
-/// error. The declared sets (outputs/artifacts) are DERIVED from these
-/// fields, and the wire name is VERIFIED against the field name
-/// (`outDigest` -> "digest", `artLog` -> "log"), so drift between the
-/// navigation surface and the runtime name is unrepresentable.
+/// Users reference `push.digest` — IDE-navigable; a typo is an eval
+/// error. The declared sets are DERIVED from these fields, and the
+/// field name must EQUAL the wire name (verified at eval), so drift
+/// between navigation surface and runtime name is unrepresentable.
+/// Outputs share the field namespace with the action's config —
+/// deliberate: config and results are attributes of one object, as in
+/// HCL resources.
 @ModuleInfo { minPklVersion = "0.32.0" }
 module graphene.core.action
 
@@ -36,11 +39,6 @@ class RetryPolicy {
   backoff: Duration = 10.s
 }
 
-/// "outDigest" -> "digest", "artBuildLog" -> "buildLog".
-local function wireName(field: String, prefix: String): String =
-  let (bare = field.drop(prefix.length))
-    bare.take(1).toLowerCase() + bare.drop(1)
-
 abstract class Action {
   name: Name
   description: String?
@@ -54,12 +52,12 @@ abstract class Action {
   requires: Listing<capability.CapabilityName>
   grants: Listing<capability.CapabilityName>
 
-  /// Factory for a typed output reference (used only in `outX = ...`
+  /// Factory for a typed output reference (used only in `x = output("x")`
   /// field declarations of concrete action classes).
   function output(o: String): values.RuntimeRef =
     new { expr = "actions.\(name).outputs.\(o)" }
 
-  /// Factory for a typed artifact reference (`artX = ...` fields).
+  /// Factory for a typed artifact reference (`y = artifact("y")` fields).
   function artifact(a: String): values.ArtifactRef =
     new { expr = "actions.\(name).artifacts.\(a)" }
 
@@ -69,22 +67,20 @@ abstract class Action {
   hidden refFields = (t: Class) ->
     this.toMap().filter((_k, v) -> v.getClass() == t)
 
-  /// Declared runtime outputs, derived from `outX` fields; each field
-  /// must be named `out<WireName>` and its wire name must match.
+  /// Declared runtime outputs, derived from RuntimeRef fields; the
+  /// field name must equal the wire name.
   hidden outputs: List<String> =
     refFields.apply(values.RuntimeRef).entries.map((e) ->
-      let (field = e.key)
       let (wire = (e.value as values.RuntimeRef).expr.split(".").last)
-        if (field != "out" + wire.take(1).toUpperCase() + wire.drop(1))
-          throw("action `\(name)`: output field `\(field)` must be named `out\(wire.take(1).toUpperCase() + wire.drop(1))` to match output(\"\(wire)\") — field name and wire name may not drift")
+        if (e.key != wire)
+          throw("action `\(name)`: output field `\(e.key)` must equal its wire name `\(wire)` (write `\(wire) = output(\"\(wire)\")`)")
         else wire)
 
-  /// Declared artifacts, derived from `artX` fields, same rule.
+  /// Declared artifacts, derived from ArtifactRef fields, same rule.
   hidden artifacts: List<String> =
     refFields.apply(values.ArtifactRef).entries.map((e) ->
-      let (field = e.key)
       let (wire = (e.value as values.ArtifactRef).expr.split(".").last)
-        if (field != "art" + wire.take(1).toUpperCase() + wire.drop(1))
-          throw("action `\(name)`: artifact field `\(field)` must be named `art\(wire.take(1).toUpperCase() + wire.drop(1))` to match artifact(\"\(wire)\") — field name and wire name may not drift")
+        if (e.key != wire)
+          throw("action `\(name)`: artifact field `\(e.key)` must equal its wire name `\(wire)` (write `\(wire) = artifact(\"\(wire)\")`)")
         else wire)
 }

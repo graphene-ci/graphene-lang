@@ -11,10 +11,10 @@ import "../../core/job.pkl"
 import "../../core/values.pkl"
 import "../support/testkit.pkl"
 
-/// Plugin-author mistake: field `outSum` claims wire name "digest".
+/// Plugin-author mistake: field `sum` claims wire name "digest".
 class BrokenAction extends testkit.TestAction {
-  outDigest = output("digest")
-  outSum = output("digest")
+  digest = output("digest")
+  sum = output("digest")
 }
 
 res: resource.EphemeralResource = new {
