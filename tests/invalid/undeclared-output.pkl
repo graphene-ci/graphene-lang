@@ -1,5 +1,7 @@
-/// Invariant 5 (publication discipline): referencing an output the
-/// action does not declare fails eval.
+/// Invariant 5 (publication discipline): a typed output field whose
+/// name is not in the action's declared outputs fails eval — the
+/// plugin-author safety net behind the `hidden outX = output("x")`
+/// convention.
 module tests.invalid.undeclaredOutput
 
 extends "../../core/template.pkl"
@@ -7,7 +9,15 @@ extends "../../core/template.pkl"
 import "../../core/resource.pkl"
 import "../../core/host.pkl"
 import "../../core/job.pkl"
+import "../../core/values.pkl"
 import "../support/testkit.pkl"
+
+/// Plugin-author mistake: typed field references "digset", declared
+/// output is "digest".
+class BrokenAction extends testkit.TestAction {
+  outputs { "digest" }
+  hidden outDigest: values.RuntimeRef = output("digset")
+}
 
 res: resource.EphemeralResource = new {
   name = "res"
@@ -16,33 +26,33 @@ res: resource.EphemeralResource = new {
 
 h: host.Host = new { name = "h"; backedBy = res }
 
-producer: job.Job = new {
-  name = "producer"
-  runsOn = h
-  actions {
-    new testkit.TestAction { name = "p"; requires { "bash" }; outputs { "digest" } }
-  }
+producer: BrokenAction = new {
+  name = "p"
+  requires { "bash" }
 }
 
-consumer: job.Job = new {
+consumer: testkit.TestAction = new {
+  name = "c"
+  requires { "bash" }
+  env { ["X"] = producer.outDigest }
+}
+
+pJob: job.Job = new {
+  name = "producer"
+  runsOn = h
+  actions { producer }
+}
+
+cJob: job.Job = new {
   name = "consumer"
   runsOn = h
-  needs { producer }
-  actions {
-    new testkit.TestAction {
-      name = "c"
-      requires { "bash" }
-      env {
-        // typo: "digset" is not declared
-        ["X"] = producer.actions[0].output("digset")
-      }
-    }
-  }
+  needs { pJob }
+  actions { consumer }
 }
 
 wf {
   name = "bad"
   resources { res }
   hosts { h }
-  jobs { producer; consumer }
+  jobs { pJob; cJob }
 }

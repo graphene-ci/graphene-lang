@@ -17,7 +17,22 @@ class TestConnectProvider extends provider.Provider {
   modes { "connect" }
 }
 
-class TestAction extends action.Action {
+open class TestAction extends action.Action {
   cmd: String = "true"
   env: Mapping<String, values.Value>
+}
+
+/// Action with a typed output — the mandatory plugin convention:
+/// outputs are exposed as hidden typed fields so users write
+/// `startCluster.outEndpoint` (IDE-navigable; a typo is an eval
+/// error), never the stringly `output("...")` factory.
+class ClusterStart extends TestAction {
+  outputs { "endpoint" }
+  hidden outEndpoint: values.RuntimeRef = output("endpoint")
+}
+
+/// Action with a typed artifact, same convention.
+class SuiteRun extends TestAction {
+  artifacts { "report" }
+  hidden artReport: values.ArtifactRef = artifact("report")
 }

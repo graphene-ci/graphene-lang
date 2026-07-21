@@ -41,15 +41,21 @@ abstract class Action {
   outputs: Listing<String>(isDistinct)
   artifacts: Listing<String>(isDistinct)
 
-  /// Typed reference to a declared runtime output. Plugin authors
-  /// expose these as hidden fields:
+  /// Factory for a typed reference to a declared runtime output.
+  /// PLUGIN CONVENTION (mandatory): a concrete action class exposes
+  /// every output as a typed hidden field —
+  ///   outputs { "digest" }
   ///   hidden outDigest: values.RuntimeRef = output("digest")
+  /// so users write `push.outDigest` (IDE-navigable; a typo is an eval
+  /// error) and never call this factory directly.
   function output(o: String): values.RuntimeRef =
     if (!outputs.toList().contains(o))
       throw("action `\(name)` does not declare output `\(o)`; declared: \(outputs.toList())")
     else new { expr = "actions.\(name).outputs.\(o)" }
 
-  /// Typed reference to a declared artifact.
+  /// Factory for a typed reference to a declared artifact; same
+  /// convention as output(): exposed as `hidden artX` fields by the
+  /// concrete action class, never called by users.
   function artifact(a: String): values.ArtifactRef =
     if (!artifacts.toList().contains(a))
       throw("action `\(name)` does not declare artifact `\(a)`; declared: \(artifacts.toList())")

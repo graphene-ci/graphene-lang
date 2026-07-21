@@ -58,39 +58,40 @@ prepare: job.Job = new {
   }
 }
 
+// Actions with published contracts live as named top-level values:
+// consumers reference typed fields directly (startCluster.outEndpoint) —
+// IDE-navigable, a typo is an eval error.
+startCluster: testkit.ClusterStart = new {
+  name = "start-cluster"
+  cmd = "docker compose up -d"
+  requires { "docker" }  // granted by prepare on the same host
+  env {
+    ["TOKEN"] = values.secretKey("vault/cluster", "token")
+    ["VERSION"] = module.input("version")
+  }
+}
+
+runSuite: testkit.SuiteRun = new {
+  name = "run-suite"
+  cmd = "pytest"
+  requires { "bash" }
+  env {
+    ["ENDPOINT"] = startCluster.outEndpoint
+  }
+}
+
 deploy: job.Job = new {
   name = "deploy"
   runsOn = nodeHosts[0]
   needs { prepare }
-  actions {
-    new testkit.TestAction {
-      name = "start-cluster"
-      cmd = "docker compose up -d"
-      requires { "docker" }  // granted by prepare on the same host
-      env {
-        ["TOKEN"] = values.secretKey("vault/cluster", "token")
-        ["VERSION"] = module.input("version")
-      }
-      outputs { "endpoint" }
-    }
-  }
+  actions { startCluster }
 }
 
 test: job.Job = new {
   name = "test"
   runsOn = app
   needs { deploy }
-  actions {
-    new testkit.TestAction {
-      name = "run-suite"
-      cmd = "pytest"
-      requires { "bash" }
-      env {
-        ["ENDPOINT"] = deploy.actions[0].output("endpoint")
-      }
-      artifacts { "report" }
-    }
-  }
+  actions { runSuite }
 }
 
 cleanup: job.Job = new {
