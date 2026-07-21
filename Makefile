@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 
 # --- pinned tool versions (bumps are explicit commits) ---
-KCL_VERSION := v0.12.7
+KCL_VERSION := v0.11.2
 KCL_LSP_VERSION := v0.11.2
 
 UNAME_S := $(shell uname -s | tr A-Z a-z)
