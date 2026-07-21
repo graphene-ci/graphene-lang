@@ -1,0 +1,40 @@
+/// Invariant 5 (publication discipline): two typed output fields must
+/// not publish under the same runtime name — the derived outputs set
+/// is constrained distinct.
+module tests.invalid.duplicateOutputNames
+
+extends "../../core/template.pkl"
+
+import "../../core/resource.pkl"
+import "../../core/host.pkl"
+import "../../core/job.pkl"
+import "../../core/values.pkl"
+import "../support/testkit.pkl"
+
+/// Plugin-author mistake: both fields claim runtime name "digest".
+class BrokenAction extends testkit.TestAction {
+  hidden outDigest: values.RuntimeRef = output("digest")
+  hidden outSum: values.RuntimeRef = output("digest")
+}
+
+res: resource.EphemeralResource = new {
+  name = "res"
+  provider = new testkit.TestProvider { provides { "bash" } }
+}
+
+h: host.Host = new { name = "h"; backedBy = res }
+
+j: job.Job = new {
+  name = "j"
+  runsOn = h
+  actions {
+    new BrokenAction { name = "p"; requires { "bash" } }
+  }
+}
+
+wf {
+  name = "bad"
+  resources { res }
+  hosts { h }
+  jobs { j }
+}

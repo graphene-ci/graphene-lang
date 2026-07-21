@@ -6,9 +6,26 @@
 /// contract (requires/grants), and the published contract (outputs,
 /// artifacts). Concrete behavior and configuration are the plugin's
 /// typed schema (subclasses).
+///
+/// PUBLISHED CONTRACT — single-declaration convention: a concrete
+/// action class declares each output/artifact as ONE typed hidden
+/// field:
+///
+///   class Push extends DockerAction {
+///     hidden outDigest: values.RuntimeRef = output("digest")
+///     hidden artLog: values.ArtifactRef = artifact("build-log")
+///   }
+///
+/// Users reference `push.outDigest` — IDE-navigable, a typo is an eval
+/// error. There is no separate outputs/artifacts listing to keep in
+/// sync: the declared sets are DERIVED from these fields via
+/// reflection, so a mismatch is unrepresentable. The field name is
+/// pure navigation surface; the string passed to the factory is the
+/// runtime name.
 @ModuleInfo { minPklVersion = "0.32.0" }
 module graphene.core.action
 
+import "pkl:reflect"
 import "capability.pkl"
 import "values.pkl"
 
@@ -35,29 +52,31 @@ abstract class Action {
   requires: Listing<capability.CapabilityName>
   grants: Listing<capability.CapabilityName>
 
-  /// Published contract — runtime outputs (small typed values in run
-  /// state) and artifacts (named blobs in system storage). Everything
-  /// else the action does to the world is invisible to the model.
-  outputs: Listing<String>(isDistinct)
-  artifacts: Listing<String>(isDistinct)
-
-  /// Factory for a typed reference to a declared runtime output.
-  /// PLUGIN CONVENTION (mandatory): a concrete action class exposes
-  /// every output as a typed hidden field —
-  ///   outputs { "digest" }
-  ///   hidden outDigest: values.RuntimeRef = output("digest")
-  /// so users write `push.outDigest` (IDE-navigable; a typo is an eval
-  /// error) and never call this factory directly.
+  /// Factory for a typed output reference (see module doc; called only
+  /// in field declarations of concrete action classes).
   function output(o: String): values.RuntimeRef =
-    if (!outputs.toList().contains(o))
-      throw("action `\(name)` does not declare output `\(o)`; declared: \(outputs.toList())")
-    else new { expr = "actions.\(name).outputs.\(o)" }
+    new { expr = "actions.\(name).outputs.\(o)" }
 
-  /// Factory for a typed reference to a declared artifact; same
-  /// convention as output(): exposed as `hidden artX` fields by the
-  /// concrete action class, never called by users.
+  /// Factory for a typed artifact reference (see module doc).
   function artifact(a: String): values.ArtifactRef =
-    if (!artifacts.toList().contains(a))
-      throw("action `\(name)` does not declare artifact `\(a)`; declared: \(artifacts.toList())")
-    else new { expr = "actions.\(name).artifacts.\(a)" }
+    new { expr = "actions.\(name).artifacts.\(a)" }
+
+  // --- derived published contract (no second declaration to drift) ---
+
+  hidden fieldsOfType = (t: Class) ->
+    reflect.Class(this.getClass()).allProperties.values
+      .filter((p) ->
+        p.type is reflect.DeclaredType &&
+        (p.type as reflect.DeclaredType).referent.reflectee == t)
+      .map((p) -> p.name)
+
+  /// Declared runtime outputs, derived from RuntimeRef fields.
+  hidden outputs: List<String>(isDistinct) =
+    fieldsOfType.apply(values.RuntimeRef)
+      .map((n) -> (this.getProperty(n) as values.RuntimeRef).expr.split(".").last)
+
+  /// Declared artifacts, derived from ArtifactRef fields.
+  hidden artifacts: List<String>(isDistinct) =
+    fieldsOfType.apply(values.ArtifactRef)
+      .map((n) -> (this.getProperty(n) as values.ArtifactRef).expr.split(".").last)
 }

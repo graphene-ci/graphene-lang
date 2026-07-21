@@ -40,3 +40,7 @@ defines the typed model and its generated bindings.
   `workflow.pkl`).
 - `module.input(...)` is the only input-reading path; raw `read()` in
   core or fixtures is a defect (hermetic eval).
+
+- Published contract convention: one typed hidden field per
+  output/artifact (`hidden outX = output("x")`); the declared sets are
+  reflection-derived in `action.pkl`. Never add a parallel listing.

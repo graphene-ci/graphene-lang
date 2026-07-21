@@ -27,12 +27,15 @@ open class TestAction extends action.Action {
 /// `startCluster.outEndpoint` (IDE-navigable; a typo is an eval
 /// error), never the stringly `output("...")` factory.
 class ClusterStart extends TestAction {
-  outputs { "endpoint" }
   hidden outEndpoint: values.RuntimeRef = output("endpoint")
 }
 
 /// Action with a typed artifact, same convention.
 class SuiteRun extends TestAction {
-  artifacts { "report" }
   hidden artReport: values.ArtifactRef = artifact("report")
+}
+
+/// Artifact-publishing cleanup helper, same typed-field convention.
+class LogCollect extends TestAction {
+  hidden artLogs: values.ArtifactRef = artifact("logs")
 }

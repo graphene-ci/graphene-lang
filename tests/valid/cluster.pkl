@@ -94,20 +94,19 @@ test: job.Job = new {
   actions { runSuite }
 }
 
+collectLogs: testkit.LogCollect = new {
+  name = "collect-logs"
+  cmd = "tar czf logs.tgz /var/log"
+  requires { "bash" }
+}
+
 cleanup: job.Job = new {
   name = "cleanup"
   runsOn = nodeHosts[0]
   needs {
     new job.Dependency { job = test; on = "always" }
   }
-  actions {
-    new testkit.TestAction {
-      name = "collect-logs"
-      cmd = "tar czf logs.tgz /var/log"
-      requires { "bash" }
-      artifacts { "logs" }
-    }
-  }
+  actions { collectLogs }
 }
 
 wf {
