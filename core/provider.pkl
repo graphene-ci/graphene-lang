@@ -1,0 +1,37 @@
+/// Provider (ADR-0001, plugin extension point): how a resource becomes
+/// usable for a run. One plugin kind, two modes:
+///   - "create":  draw capacity from the pool, create the resource,
+///                install the agent; destroy at release (ephemeral);
+///   - "connect": reach an already-existing resource via the registry
+///                entry's connection config, attach, activate the
+///                agent; detach at release (persistent).
+/// Which modes a provider supports is declared by the plugin.
+///
+/// `provides` is an obligation, not a description: by making the
+/// resource usable the system commits to that baseline; runtime probes
+/// may verify it.
+@ModuleInfo { minPklVersion = "0.32.0" }
+module graphene.core.provider
+
+import "capability.pkl"
+
+typealias ProviderMode = "create" | "connect"
+
+/// Base of all providers. Concrete providers (ssh, docker, clouds) are
+/// plugin schemas extending this class; their fields are opaque to the
+/// evaluator.
+abstract class Provider {
+  /// Discriminator: routes the resource to a provider executor at
+  /// runtime.
+  kind: String(!isEmpty)
+
+  /// Modes this provider supports (declared by the plugin author).
+  modes: Listing<ProviderMode>(length > 0, isDistinct)
+
+  /// Capability baseline the provider guarantees for resources it
+  /// makes usable (provider defaults; the resource author may assert
+  /// more on the resource itself).
+  provides: Listing<capability.CapabilityName>
+
+  labels: Mapping<String, String>
+}

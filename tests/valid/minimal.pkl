@@ -1,0 +1,41 @@
+/// Smallest valid workflow: one ephemeral resource, one host, one job.
+module tests.valid.minimal
+
+extends "../../core/template.pkl"
+
+import "../../core/resource.pkl"
+import "../../core/host.pkl"
+import "../../core/job.pkl"
+import "../support/testkit.pkl"
+
+buildRes: resource.EphemeralResource = new {
+  name = "build-res"
+  provider = new testkit.TestProvider {
+    provides { "bash" }
+  }
+  hardware { cpu = 2; ram = 4.gib }
+}
+
+build: host.Host = new {
+  name = "build"
+  backedBy = buildRes
+}
+
+buildJob: job.Job = new {
+  name = "build"
+  runsOn = build
+  actions {
+    new testkit.TestAction {
+      name = "compile"
+      cmd = "make"
+      requires { "bash" }
+    }
+  }
+}
+
+wf {
+  name = "minimal"
+  resources { buildRes }
+  hosts { build }
+  jobs { buildJob }
+}

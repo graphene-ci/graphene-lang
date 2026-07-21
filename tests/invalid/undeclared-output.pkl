@@ -1,0 +1,48 @@
+/// Invariant 5 (publication discipline): referencing an output the
+/// action does not declare fails eval.
+module tests.invalid.undeclaredOutput
+
+extends "../../core/template.pkl"
+
+import "../../core/resource.pkl"
+import "../../core/host.pkl"
+import "../../core/job.pkl"
+import "../support/testkit.pkl"
+
+res: resource.EphemeralResource = new {
+  name = "res"
+  provider = new testkit.TestProvider { provides { "bash" } }
+}
+
+h: host.Host = new { name = "h"; backedBy = res }
+
+producer: job.Job = new {
+  name = "producer"
+  runsOn = h
+  actions {
+    new testkit.TestAction { name = "p"; requires { "bash" }; outputs { "digest" } }
+  }
+}
+
+consumer: job.Job = new {
+  name = "consumer"
+  runsOn = h
+  needs { producer }
+  actions {
+    new testkit.TestAction {
+      name = "c"
+      requires { "bash" }
+      env {
+        // typo: "digset" is not declared
+        ["X"] = producer.actions[0].output("digset")
+      }
+    }
+  }
+}
+
+wf {
+  name = "bad"
+  resources { res }
+  hosts { h }
+  jobs { producer; consumer }
+}

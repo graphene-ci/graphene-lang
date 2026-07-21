@@ -1,0 +1,57 @@
+/// Action (ADR-0001, plugin extension point): the declarative
+/// projection of imperative work — the user fills typed fields, the
+/// plugin's executor turns them into real operations at runtime.
+///
+/// The core owns execution policies (timeout, retry), the capability
+/// contract (requires/grants), and the published contract (outputs,
+/// artifacts). Concrete behavior and configuration are the plugin's
+/// typed schema (subclasses).
+@ModuleInfo { minPklVersion = "0.32.0" }
+module graphene.core.action
+
+import "capability.pkl"
+import "values.pkl"
+
+typealias Name = String(matches(Regex(#"[a-z][a-z0-9-]*"#)))
+
+/// Retries are invisible to the DAG: dependency edges see only the
+/// final outcome; every attempt is visible as observation-plane
+/// events.
+class RetryPolicy {
+  attempts: Int(isPositive) = 1
+  backoff: Duration = 10.s
+}
+
+abstract class Action {
+  name: Name
+  description: String?
+
+  /// The model owns time limits at the action level only (ADR-0001).
+  timeout: Duration = 5.min
+  retry: RetryPolicy = new RetryPolicy {}
+
+  /// Capability contract: what this action needs from its host, and
+  /// what it adds to it (a visible host-state mutation).
+  requires: Listing<capability.CapabilityName>
+  grants: Listing<capability.CapabilityName>
+
+  /// Published contract — runtime outputs (small typed values in run
+  /// state) and artifacts (named blobs in system storage). Everything
+  /// else the action does to the world is invisible to the model.
+  outputs: Listing<String>(isDistinct)
+  artifacts: Listing<String>(isDistinct)
+
+  /// Typed reference to a declared runtime output. Plugin authors
+  /// expose these as hidden fields:
+  ///   hidden outDigest: values.RuntimeRef = output("digest")
+  function output(o: String): values.RuntimeRef =
+    if (!outputs.toList().contains(o))
+      throw("action `\(name)` does not declare output `\(o)`; declared: \(outputs.toList())")
+    else new { expr = "actions.\(name).outputs.\(o)" }
+
+  /// Typed reference to a declared artifact.
+  function artifact(a: String): values.ArtifactRef =
+    if (!artifacts.toList().contains(a))
+      throw("action `\(name)` does not declare artifact `\(a)`; declared: \(artifacts.toList())")
+    else new { expr = "actions.\(name).artifacts.\(a)" }
+}

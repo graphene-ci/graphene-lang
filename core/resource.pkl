@@ -1,0 +1,59 @@
+/// Resource (ADR-0001): the executor of a host role — the real thing
+/// (VM, physical host, container) with identity and lifecycle
+/// (reserve -> acquire -> use -> release). Hardware and connection
+/// parameters live here, never on the host.
+@ModuleInfo { minPklVersion = "0.32.0" }
+module graphene.core.resource
+
+import "capability.pkl"
+import "provider.pkl"
+
+typealias Name = String(matches(Regex(#"[a-z][a-z0-9-]*"#)))
+
+/// Hardware specification of an ephemeral resource. Typed here so the
+/// run's total capacity demand is statically computable from the
+/// artifact (ADR-0001 invariant 7).
+class HardwareSpec {
+  cpu: Int(isPositive) = 1
+  ram: DataSize = 1.gib
+  disk: DataSize = 10.gib
+}
+
+/// Base of resources: what backs a host.
+abstract class Resource {
+  name: Name
+
+  /// Capabilities asserted by the resource author on top of any
+  /// provider defaults ("this image also includes terraform").
+  provides: Listing<capability.CapabilityName>
+
+  /// The full declared capability baseline a bound host inherits.
+  hidden baseline: List<capability.CapabilityName>
+}
+
+/// Born at acquire from a provider's pool, run-scoped, dies at
+/// release. Declared as a full specification.
+class EphemeralResource extends Resource {
+  provider: provider.Provider(modes.toList().contains("create"))
+  hardware: HardwareSpec = new HardwareSpec {}
+
+  hidden baseline = provider.provides.toList() + provides.toList()
+}
+
+/// A typed claim on a persistent resource: an entry of the system
+/// resource registry that exists independently of runs. Acquire means
+/// attach, release means detach.
+///
+/// `provides` here mirrors the registry declaration (hermetic eval
+/// cannot query the registry): the assertion is validated against the
+/// registry entry at run start, and probes verify it at attach.
+class PersistentClaim extends Resource {
+  /// Identity of the registry entry this claim binds to.
+  registryRef: String(!isEmpty)
+
+  /// Connection provider expected for the entry (must support
+  /// "connect"); its config lives in the registry, not here.
+  providerKind: String(!isEmpty)
+
+  hidden baseline = provides.toList()
+}

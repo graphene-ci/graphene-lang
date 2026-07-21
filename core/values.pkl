@@ -1,0 +1,57 @@
+/// Value binding (ADR-0001): every configuration value is either
+/// resolved at eval (literals, workflow inputs) or a typed deferred
+/// reference — a placeholder for a value that does not exist at eval
+/// time. The reference persists in the model; the value materializes
+/// only within a run.
+@ModuleInfo { minPklVersion = "0.32.0" }
+module graphene.core.values
+
+/// Base of deferred references. A reference declares who resolves it
+/// and the lifecycle of the resolved value (see concrete kinds).
+abstract class ValueRef {
+  /// How the reference appears in the rendered eval artifact.
+  abstract function placeholder(): String
+}
+
+/// Resolved by the system from a secret backend, as late as possible.
+/// Forcibly ephemeral: delivered to the point of use, then destroyed;
+/// never present in artifacts, run state, telemetry, or logs.
+/// Whether a workflow may reference a given path is system-side
+/// authorization (secret scoping), not the model's concern.
+class SecretRef extends ValueRef {
+  path: String(!isEmpty)
+  /// Key inside a composite secret.
+  key: String?
+  function placeholder(): String =
+    if (key != null) "${secret:\(path)#\(key)}" else "${secret:\(path)}"
+}
+
+/// Resolved from run state (e.g. an action output); the value does not
+/// exist until execution produces it. Lives in run state: addressable,
+/// observable, part of run history.
+class RuntimeRef extends ValueRef {
+  /// Canonical-address expression, e.g. "actions.build.outputs.digest".
+  expr: String(!isEmpty)
+  function placeholder(): String = "${runtime:\(expr)}"
+}
+
+/// Resolved by the runtime into a local path on the consuming host;
+/// the blob lives in system storage and is delivered by the system.
+class ArtifactRef extends ValueRef {
+  /// Canonical-address expression, e.g. "actions.test.artifacts.report".
+  expr: String(!isEmpty)
+  function placeholder(): String = "${artifact:\(expr)}"
+}
+
+/// A configuration value: a literal or a deferred reference.
+typealias Value = String | ValueRef
+
+/// Factories — short spelling in user configs.
+function secret(_path: String): SecretRef = new { path = _path }
+
+function secretKey(_path: String, _key: String): SecretRef =
+  new { path = _path; key = _key }
+
+/// Render a Value for the artifact (use in output converters).
+function render(v: Value): String =
+  if (v is ValueRef) v.placeholder() else v

@@ -1,0 +1,95 @@
+/// Workflow (ADR-0001): the root entity — the complete, closed set of
+/// hosts, resources, and jobs of one run, plus the input schema (the
+/// workflow's public contract for run parameters).
+///
+/// The constraints on this class implement the eval-time invariants of
+/// ADR-0001: closed topology, name uniqueness, capability coverage,
+/// publication discipline, computable demand.
+@ModuleInfo { minPklVersion = "0.32.0" }
+module graphene.core.workflow
+
+import "resource.pkl"
+import "host.pkl"
+import "job.pkl"
+import "action.pkl"
+import "observability.pkl"
+
+typealias Name = String(matches(Regex(#"[a-z][a-z0-9-]*"#)))
+
+/// One parameter of the workflow's input schema. Values are supplied
+/// per run (external properties) and validated against this
+/// declaration; ad-hoc undeclared input reads do not exist.
+class InputSpec {
+  type: "string" | "int" | "boolean" = "string"
+  description: String?
+  /// Absent default + no supplied value = eval error.
+  default: String?
+  required: Boolean = default == null
+}
+
+class Workflow {
+  name: Name
+
+  /// Input schema: part of the public contract (triggers validate
+  /// against it, interfaces render it, the artifact carries it).
+  inputs: Mapping<String, InputSpec>
+
+  resources: Listing<resource.Resource>(
+    length > 0,
+    isDistinctBy((r) -> r.name)
+  )
+
+  hosts: Listing<host.Host>(
+    length > 0,
+    isDistinctBy((h) -> h.name),
+    // closed topology: every host is backed by a declared resource
+    toList().every((h) -> resources.toList().contains(h.backedBy))
+  )
+
+  jobs: Listing<job.Job>(
+    length > 0,
+    isDistinctBy((j) -> j.name),
+    // action names unique workflow-wide (canonical addressing)
+    toList().flatMap((j) -> j.actions.toList()).isDistinctBy((a) -> a.name),
+    // closed topology: runsOn and every dependency edge point at
+    // declared entities
+    toList().every((j) -> hosts.toList().contains(j.runsOn)),
+    toList().every((j) -> j.edges.every((e) -> toList().contains(e.job))),
+    // no duplicate edges to the same dependency
+    toList().every((j) -> j.edgesDistinct),
+    // capability coverage, with a precise error
+    toList().every((j) ->
+      if (j.capsOk) true
+      else throw("job `\(j.name)`: unsatisfied capability requirement(s) \(j.missingCaps) at host `\(j.runsOn.name)`; available: \(j.availableCaps)"))
+  )
+
+  observability: observability.Observability?
+
+  // --- computable demand (ADR-0001 invariant 7) ---
+
+  /// Ephemeral resources grouped by provider kind.
+  hidden ephemeralByKind: Map<String, List<resource.EphemeralResource>> =
+    resources.toList()
+      .filter((r) -> r is resource.EphemeralResource)
+      .map((r) -> r as resource.EphemeralResource)
+      .groupBy((r) -> r.provider.kind)
+
+  /// Ephemeral demand per provider kind: instances, cpu, ram, disk.
+  hidden ephemeralDemand: Mapping<String, Dynamic> = new {
+    for (kind, rs in ephemeralByKind) {
+      [kind] {
+        instances = rs.length
+        cpu = rs.fold(0, (s: Int, r) -> s + r.hardware.cpu)
+        ram = rs.fold(0.gib, (s: DataSize, r) -> s + r.hardware.ram)
+        disk = rs.fold(0.gib, (s: DataSize, r) -> s + r.hardware.disk)
+      }
+    }
+  }
+
+  /// Attach demand: one slot per persistent claim.
+  hidden attachDemand: List<String> =
+    resources.toList()
+      .filter((r) -> r is resource.PersistentClaim)
+      .map((r) -> (r as resource.PersistentClaim).registryRef)
+}
+

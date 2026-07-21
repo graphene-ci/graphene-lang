@@ -1,0 +1,33 @@
+/// Invariant 1 (closed topology): a job runs at a host that is not
+/// declared in the workflow.
+module tests.invalid.undeclaredHost
+
+extends "../../core/template.pkl"
+
+import "../../core/resource.pkl"
+import "../../core/host.pkl"
+import "../../core/job.pkl"
+import "../support/testkit.pkl"
+
+res: resource.EphemeralResource = new {
+  name = "res"
+  provider = new testkit.TestProvider { provides { "bash" } }
+}
+
+declared: host.Host = new { name = "declared"; backedBy = res }
+stray: host.Host = new { name = "stray"; backedBy = res }
+
+j: job.Job = new {
+  name = "j"
+  runsOn = stray
+  actions {
+    new testkit.TestAction { name = "a"; requires { "bash" } }
+  }
+}
+
+wf {
+  name = "bad"
+  resources { res }
+  hosts { declared }  // stray is not here
+  jobs { j }
+}

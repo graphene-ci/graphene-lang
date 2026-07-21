@@ -1,0 +1,23 @@
+/// Test-only concrete subclasses of the core extension points.
+/// Real providers/actions live in graphene-plugins; these exist so the
+/// core schemas can be exercised without any plugin.
+module graphene.tests.testkit
+
+import "../../core/provider.pkl"
+import "../../core/action.pkl"
+import "../../core/values.pkl"
+
+class TestProvider extends provider.Provider {
+  kind = "test"
+  modes { "create" }
+}
+
+class TestConnectProvider extends provider.Provider {
+  kind = "test-ssh"
+  modes { "connect" }
+}
+
+class TestAction extends action.Action {
+  cmd: String = "true"
+  env: Mapping<String, values.Value>
+}

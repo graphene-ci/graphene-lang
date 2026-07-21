@@ -1,0 +1,16 @@
+/// Capabilities (ADR-0001): the static bridge between the declarative
+/// resource world and the imperative action world.
+///
+/// A capability *definition* (name + optional probe) is supplied by a
+/// capability plugin — definitions do not live in the core. The core
+/// deals only in capability *names*:
+///   - resources declare a baseline (provider defaults + author assertion),
+///   - hosts inherit the baseline and accumulate action grants per run,
+///   - actions consume via requires.
+@ModuleInfo { minPklVersion = "0.32.0" }
+module graphene.core.capability
+
+/// A capability name: "docker", "bash", "systemd", ...
+/// Flat names in v0; structured/versioned capabilities are a future
+/// extension carried by capability plugins.
+typealias CapabilityName = String(matches(Regex(#"[a-z][a-z0-9._-]*"#)))

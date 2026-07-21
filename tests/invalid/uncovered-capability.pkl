@@ -1,0 +1,31 @@
+/// Invariant 4: requires "docker", nothing provides or grants it.
+module tests.invalid.uncoveredCapability
+
+extends "../../core/template.pkl"
+
+import "../../core/resource.pkl"
+import "../../core/host.pkl"
+import "../../core/job.pkl"
+import "../support/testkit.pkl"
+
+res: resource.EphemeralResource = new {
+  name = "res"
+  provider = new testkit.TestProvider { provides { "bash" } }
+}
+
+h: host.Host = new { name = "h"; backedBy = res }
+
+j: job.Job = new {
+  name = "j"
+  runsOn = h
+  actions {
+    new testkit.TestAction { name = "a"; requires { "docker" } }
+  }
+}
+
+wf {
+  name = "bad"
+  resources { res }
+  hosts { h }
+  jobs { j }
+}

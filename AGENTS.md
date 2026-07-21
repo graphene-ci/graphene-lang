@@ -20,7 +20,23 @@ defines the typed model and its generated bindings.
 - Stack/technology choices are recorded as ADRs in `graphene-docs` before
   implementation starts.
 
-## Status
+## Layout
 
-Bootstrap skeleton — structure and tooling are not yet established. When
-adding the first real content, update this file and the README in the same PR.
+- `core/` — the core schema package (see README for the module map).
+  Normative source: ADR-0001 in `graphene-docs`. A schema change that
+  moves an entity or invariant requires superseding the ADR first.
+- `tests/valid`, `tests/invalid` — eval fixtures; every invariant has an
+  invalid fixture that must fail with a precise error. Adding an
+  invariant without its invalid fixture is an incomplete change.
+- `scripts/test.sh` — runs both directions; wired as `make test`.
+- Tooling: `make configure` fetches the pinned pkl into `bin/`
+  (version pinned in the Makefile; bumps are explicit commits).
+
+## Working here
+
+- TDD Pkl-style: add/extend fixtures first, then schemas until green.
+- Precise eval errors are part of the contract: constraint failures
+  must name the entity and what is missing (see capability coverage in
+  `workflow.pkl`).
+- `module.input(...)` is the only input-reading path; raw `read()` in
+  core or fixtures is a defect (hermetic eval).
