@@ -60,7 +60,7 @@ Nothing is wired by hand, wire names are the schema field names, and
 ```sh
 make configure   # fetch pinned kcl + kcl-language-server into bin/
 make test        # valid fixtures must eval, invalid must fail
-make eval FILE=tests/valid/cluster.k
+make eval FILE=tests/valid/cluster/main.k
 ```
 
 All tools live in `bin/` and are version-pinned in the Makefile —
@@ -70,10 +70,10 @@ PATH).
 
 ## Tests
 
-`tests/valid/` — workflows that must evaluate (minimal; a
+`tests/valid/<name>/main.k` — workflows that must evaluate (minimal; a
 cluster-shaped one exercising host iteration, persistent claims, edge
 conditions, cross-job grants, inputs, typed outputs, artifacts,
-secrets). `tests/invalid/` — one fixture per invariant; each must fail
+secrets). `tests/invalid/<name>/main.k` — one fixture per invariant; each must fail
 eval with a precise named error (`scripts/test.sh` enforces both
 directions). `tests/support/testkit.k` — test-only concrete
 providers/actions (real ones live in `graphene-plugins`).

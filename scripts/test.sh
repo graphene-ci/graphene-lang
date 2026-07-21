@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 KCL=bin/kcl
 fail=0
 
-for f in tests/valid/*.k; do
+for f in tests/valid/*/main.k; do
   if out=$("$KCL" run "$f" 2>&1); then
     echo "PASS  $f"
   else
@@ -16,7 +16,7 @@ for f in tests/valid/*.k; do
   fi
 done
 
-for f in tests/invalid/*.k; do
+for f in tests/invalid/*/main.k; do
   if out=$("$KCL" run "$f" 2>&1); then
     echo "FAIL  $f (expected eval error, got success)"
     fail=1

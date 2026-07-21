@@ -49,3 +49,7 @@ Language choice: ADR-0002; model: ADR-0001 (both in `graphene-docs`).
 - Optional schema attributes are `Undefined`, not `None`, until set —
   guard `check` entries with trailing `if attr` instead of `== None`
   comparisons.
+- All `.k` files in one directory form ONE package: top-level names
+  collide across files (the CLI compiles single files and hides this;
+  the language server compiles the directory and errors). Hence every
+  fixture lives in its own directory (`tests/*/<name>/main.k`).
