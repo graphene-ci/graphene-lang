@@ -22,29 +22,25 @@ open class TestAction extends action.Action {
   env: Mapping<String, values.Value>
 }
 
-/// Typed outputs contract — the plugin convention: outputs are a real
-/// class; users write `startCluster.outputs.endpoint` (IDE-navigable,
-/// typo = type error). The class is the codegen target the executor
-/// fills at runtime.
+/// Published contract — pure schema, nothing instantiated: the class
+/// describes the outputs, the base builds `startCluster.outputs.endpoint`
+/// from it by reflection. The class is also the codegen target the
+/// executor fills at runtime.
 class ClusterStartOutputs extends action.Outputs {
   endpoint: values.RuntimeRef
 }
 
 class ClusterStart extends TestAction {
-  outputs: ClusterStartOutputs = let (o = mkOutput) new {
-    endpoint = o.apply("endpoint")
-  }
+  outputsSchema = ClusterStartOutputs
 }
 
-/// Typed artifacts contract, same convention.
+/// Artifacts contract, same convention.
 class SuiteRunArtifacts extends action.Artifacts {
   report: values.ArtifactRef
 }
 
 class SuiteRun extends TestAction {
-  artifacts: SuiteRunArtifacts = let (a = mkArtifact) new {
-    report = a.apply("report")
-  }
+  artifactsSchema = SuiteRunArtifacts
 }
 
 /// Artifact-publishing cleanup helper, same convention.
@@ -53,7 +49,5 @@ class LogCollectArtifacts extends action.Artifacts {
 }
 
 class LogCollect extends TestAction {
-  artifacts: LogCollectArtifacts = let (a = mkArtifact) new {
-    logs = a.apply("logs")
-  }
+  artifactsSchema = LogCollectArtifacts
 }

@@ -30,7 +30,7 @@ This repository owns everything that makes that model work as the system's
 | `resource.pkl` | `Resource` — the executor of a role: `EphemeralResource` (provider + hardware, run-scoped) and `PersistentClaim` (registry entry claim) |
 | `provider.pkl` | `Provider` base (plugin point): `kind` discriminator, `create`/`connect` modes, capability baseline |
 | `job.pkl` | `Job`: host binding, dependency edges with start conditions (`success`/`failure`/`always`), per-host capability accounting |
-| `action.pkl` | `Action` base (plugin point): timeout/retry, requires/grants; published contract: typed nested classes (`PushOutputs` with `digest: RuntimeRef`) — users write `push.outputs.digest`; wire names derived, field==wire verified — drift unrepresentable; the outputs class is the codegen target the executor fills |
+| `action.pkl` | `Action` base (plugin point): timeout/retry, requires/grants; published contract: pure schema classes (`PushOutputs` with `digest: RuntimeRef`, referenced as `outputsSchema = PushOutputs` — no instantiation); the base builds `push.outputs.digest` refs from the schema by reflection; wire names are the schema field names — nothing to wire, nothing to drift |
 | `values.pkl` | Value binding: `SecretRef`, `RuntimeRef`, `ArtifactRef` — deferred references rendered as placeholders |
 | `capability.pkl` | Capability names (definitions are capability plugins) |
 | `observability.pkl` | Sinks (plugin point) and routing declaration surface |

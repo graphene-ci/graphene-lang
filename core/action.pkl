@@ -7,25 +7,27 @@
 /// artifacts). Concrete behavior and configuration are the plugin's
 /// typed schema (subclasses).
 ///
-/// PUBLISHED CONTRACT — typed nested classes: a plugin declares its
-/// outputs/artifacts as real classes, and wires them in the action:
+/// PUBLISHED CONTRACT — classes are pure schema, nothing is
+/// instantiated by plugin authors:
 ///
 ///   class PushOutputs extends action.Outputs {
 ///     digest: values.RuntimeRef
 ///   }
 ///   class Push extends DockerAction {
-///     outputs: PushOutputs = let (o = mkOutput) new {
-///       digest = o.apply("digest")
-///     }
+///     outputsSchema = PushOutputs        // a class value, no `new`
 ///   }
 ///
-/// Users reference `push.outputs.digest` — a typed class field:
-/// IDE-navigable, a typo is a type error. The contract is a first-class
-/// TYPE (codegen target: the struct the executor fills). Declared wire
-/// names are DERIVED from the object, and each field name must EQUAL
-/// its wire name (verified at eval) — drift is unrepresentable.
+/// The base Action builds the reference object FROM the schema via
+/// reflection: users write `push.outputs.digest` and get a RuntimeRef
+/// addressed as `actions.<instance>.outputs.digest`. A typo fails eval
+/// with a did-you-mean. Wire names ARE the schema field names — there
+/// is nothing to drift and nothing to wire by hand. The outputs class
+/// is a first-class type: the codegen target for the struct the
+/// executor fills at runtime.
 @ModuleInfo { minPklVersion = "0.32.0" }
 module graphene.core.action
+
+import "pkl:reflect"
 
 import "capability.pkl"
 import "values.pkl"
@@ -61,32 +63,38 @@ abstract class Action {
   requires: Listing<capability.CapabilityName>
   grants: Listing<capability.CapabilityName>
 
-  /// The action's published runtime outputs, as a typed object
-  /// (subclass of Outputs declared by the plugin). Null = no outputs.
-  outputs: Outputs?
+  /// Pure schema markers: the plugin points at its outputs/artifacts
+  /// classes. Null = the action publishes nothing of that kind.
+  hidden outputsSchema: Class? = null
+  hidden artifactsSchema: Class? = null
 
-  /// The action's published artifacts, same convention.
-  artifacts: Artifacts?
+  // --- built by the base from the schema; plugins instantiate nothing ---
 
-  /// Factory injected into outputs wiring:
-  ///   outputs: PushOutputs = let (o = mkOutput) new { digest = o.apply("digest") }
-  hidden mkOutput: (String) -> values.RuntimeRef =
-    (o) -> new values.RuntimeRef { expr = "actions.\(name).outputs.\(o)" }
+  /// Schema field names (= wire names; nothing to drift), with the
+  /// field types validated against the expected reference class.
+  hidden schemaFields = (schema: Class?, refClass: Class, what: String) ->
+    if (schema == null) List()
+    else reflect.Class(schema!!).allProperties.values.map((p) ->
+      if (p.type is reflect.DeclaredType && (p.type as reflect.DeclaredType).referent.reflectee == refClass)
+        p.name
+      else
+        throw("action `\(name)`: \(what) schema `\(reflect.Class(schema!!).name)` field `\(p.name)` must be typed \(refClass.simpleName)"))
 
-  /// Factory for artifact wiring, same shape.
-  hidden mkArtifact: (String) -> values.ArtifactRef =
-    (a) -> new values.ArtifactRef { expr = "actions.\(name).artifacts.\(a)" }
+  hidden outputNames: List<String> =
+    schemaFields.apply(outputsSchema, values.RuntimeRef, "outputs")
+  hidden artifactNames: List<String> =
+    schemaFields.apply(artifactsSchema, values.ArtifactRef, "artifacts")
 
-  // --- derived published contract (wire names from the typed objects) ---
+  /// Reference objects users navigate: `push.outputs.digest` yields a
+  /// RuntimeRef addressed as actions.<name>.outputs.digest. Built from
+  /// the schema by reflection; a typo fails eval with a did-you-mean.
+  hidden outputs: Dynamic =
+    let (owner = name)
+      outputNames.fold(Map(), (acc: Map, o: String) ->
+        acc.put(o, new values.RuntimeRef { expr = "actions.\(owner).outputs.\(o)" })).toDynamic()
 
-  hidden wireNames = (obj: Typed?, what: String) ->
-    if (obj == null) List()
-    else obj.toMap().entries.map((e) ->
-      let (wire = (e.value as values.ValueRef).expr.split(".").last)
-        if (e.key != wire)
-          throw("action `\(name)`: \(what) field `\(e.key)` must equal its wire name `\(wire)` — field name and wire name may not drift")
-        else wire)
-
-  hidden outputNames: List<String> = wireNames.apply(outputs, "output")
-  hidden artifactNames: List<String> = wireNames.apply(artifacts, "artifact")
+  hidden artifacts: Dynamic =
+    let (owner = name)
+      artifactNames.fold(Map(), (acc: Map, a: String) ->
+        acc.put(a, new values.ArtifactRef { expr = "actions.\(owner).artifacts.\(a)" })).toDynamic()
 }

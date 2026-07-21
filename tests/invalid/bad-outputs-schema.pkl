@@ -1,7 +1,6 @@
-/// Invariant 5 (publication discipline): an output field whose name
-/// does not match its wire name (`outX` <-> output("x")) fails eval —
-/// navigation surface and runtime name may not drift.
-module tests.invalid.outputFieldDrift
+/// Invariant 5 (publication discipline): an outputs schema whose field
+/// is not a RuntimeRef is a plugin-author error caught at eval.
+module tests.invalid.badOutputsSchema
 
 extends "../../core/template.pkl"
 
@@ -12,15 +11,13 @@ import "../../core/action.pkl"
 import "../../core/values.pkl"
 import "../support/testkit.pkl"
 
-/// Plugin-author mistake: field `sum` claims wire name "digest".
+/// Plugin-author mistake: schema field typed String, not RuntimeRef.
 class BrokenOutputs extends action.Outputs {
-  sum: values.RuntimeRef
+  digest: String
 }
 
 class BrokenAction extends testkit.TestAction {
-  outputs: BrokenOutputs = let (o = mkOutput) new {
-    sum = o.apply("digest")
-  }
+  outputsSchema = BrokenOutputs
 }
 
 res: resource.EphemeralResource = new {

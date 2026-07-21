@@ -41,8 +41,8 @@ defines the typed model and its generated bindings.
 - `module.input(...)` is the only input-reading path; raw `read()` in
   core or fixtures is a defect (hermetic eval).
 
-- Published contract convention: outputs/artifacts are typed nested
-  classes (`class XOutputs extends action.Outputs { digest: values.RuntimeRef }`)
-  wired via `let (o = mkOutput) new { digest = o.apply("digest") }`;
-  wire names derive from the object, field==wire verified at eval.
-  Never add a parallel listing.
+- Published contract convention: pure schema classes —
+  `class XOutputs extends action.Outputs { digest: values.RuntimeRef }`
+  referenced as `outputsSchema = XOutputs` (a class value, never `new`);
+  the base builds `a.outputs.digest` refs from the schema by
+  reflection. Never instantiate contract classes at eval.
