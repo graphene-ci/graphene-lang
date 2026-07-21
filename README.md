@@ -36,24 +36,30 @@ One KCL package (files share the `core` namespace):
 
 ### Published contract convention
 
-Outputs/artifacts are plain schemas with lazy address defaults — KCL
-re-evaluates schema attributes against the final instance:
+Outputs/artifacts are pure schemas; addresses are wired by a mixin —
+the language construct built for exactly this (a mixin reads its host
+schema's attributes):
 
 ```kcl
 schema PushOutputs(core.Outputs):
-    digest: core.RuntimeRef = core.RuntimeRef {
-        expr = "actions.${owner}.outputs.digest"
+    digest: core.RuntimeRef            # the whole contract, no plumbing
+
+mixin PushOutputsMixin for core.ActionProtocol:
+    outputs: PushOutputs = PushOutputs {
+        digest = core.RuntimeRef { expr = "actions.${name}.outputs.digest" }
     }
 
 schema Push(core.Action):
-    outputs: PushOutputs = PushOutputs { owner = name }
+    mixin [PushOutputsMixin]
+    outputs?: PushOutputs
 
 push = Push { name = "push-1" }
 push.outputs.digest   # -> actions.push-1.outputs.digest, IDE-navigable
 ```
 
-Nothing is wired by hand, wire names are the schema field names, and
-`owner` is verified to equal the action name at eval.
+No owner concept exists; the mixin sees the host's `name` directly.
+Mixins are the designated wiring slot — the codegen milestone
+generates them from the pure schemas.
 
 ## Getting started
 

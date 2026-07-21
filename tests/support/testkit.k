@@ -16,22 +16,41 @@ schema TestAction(core.Action):
     cmd: str = "true"
     env: {str:core.Value} = {}
 
-# Published contract — pure schema with lazy address defaults:
-# users navigate `startCluster.outputs.endpoint`.
+# Published contract — pure schemas + mixins: users navigate
+# `startCluster.outputs.endpoint`; the mixin wires addresses from the
+# host action's name.
 schema ClusterStartOutputs(core.Outputs):
-    endpoint: core.RuntimeRef = core.RuntimeRef { expr = "actions.${owner}.outputs.endpoint" }
+    endpoint: core.RuntimeRef
+
+mixin ClusterStartOutputsMixin for core.ActionProtocol:
+    outputs: ClusterStartOutputs = ClusterStartOutputs {
+        endpoint = core.RuntimeRef { expr = "actions.${name}.outputs.endpoint" }
+    }
 
 schema ClusterStart(TestAction):
-    outputs: ClusterStartOutputs = ClusterStartOutputs { owner = name }
+    mixin [ClusterStartOutputsMixin]
+    outputs?: ClusterStartOutputs
 
 schema SuiteRunArtifacts(core.Artifacts):
-    report: core.ArtifactRef = core.ArtifactRef { expr = "actions.${owner}.artifacts.report" }
+    report: core.ArtifactRef
+
+mixin SuiteRunArtifactsMixin for core.ActionProtocol:
+    artifacts: SuiteRunArtifacts = SuiteRunArtifacts {
+        report = core.ArtifactRef { expr = "actions.${name}.artifacts.report" }
+    }
 
 schema SuiteRun(TestAction):
-    artifacts: SuiteRunArtifacts = SuiteRunArtifacts { owner = name }
+    mixin [SuiteRunArtifactsMixin]
+    artifacts?: SuiteRunArtifacts
 
 schema LogCollectArtifacts(core.Artifacts):
-    logs: core.ArtifactRef = core.ArtifactRef { expr = "actions.${owner}.artifacts.logs" }
+    logs: core.ArtifactRef
+
+mixin LogCollectArtifactsMixin for core.ActionProtocol:
+    artifacts: LogCollectArtifacts = LogCollectArtifacts {
+        logs = core.ArtifactRef { expr = "actions.${name}.artifacts.logs" }
+    }
 
 schema LogCollect(TestAction):
-    artifacts: LogCollectArtifacts = LogCollectArtifacts { owner = name }
+    mixin [LogCollectArtifactsMixin]
+    artifacts?: LogCollectArtifacts

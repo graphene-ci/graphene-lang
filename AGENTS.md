@@ -29,10 +29,11 @@ Language choice: ADR-0002; model: ADR-0001 (both in `graphene-docs`).
 - Precise eval errors are part of the contract: `check` messages name
   the entity and what is missing ("job X: unsatisfied capability
   requirement at host Y").
-- Published contract convention: outputs/artifacts are plain schemas
-  inheriting `core.Outputs`/`core.Artifacts` with lazy address
-  defaults over `owner`; action schemas bind `owner = name`. Never add
-  a parallel listing of output names.
+- Published contract convention: outputs/artifacts are PURE schemas
+  inheriting `core.Outputs`/`core.Artifacts` (fields only); addresses
+  are wired by a `mixin ... for core.ActionProtocol` reading the host
+  action's `name`. Never add plumbing attributes to contract schemas
+  or parallel listings of output names.
 - Schemas are pure descriptions: no instantiation logic beyond lazy
   attribute defaults.
 

@@ -2,20 +2,26 @@
 # projection of imperative work — the user fills typed fields, the
 # plugin's executor turns them into real operations at runtime.
 #
-# PUBLISHED CONTRACT — plain schemas with lazy address defaults:
+# PUBLISHED CONTRACT — pure schemas + mixins (the language construct
+# built for exactly this: a mixin reads its host schema's attributes):
 #
 #   schema PushOutputs(core.Outputs):
-#       digest: core.RuntimeRef = core.RuntimeRef {
-#           expr = "actions.${owner}.outputs.digest"
+#       digest: core.RuntimeRef        # the whole contract, no plumbing
+#
+#   mixin PushOutputsMixin for core.ActionProtocol:
+#       outputs: PushOutputs = PushOutputs {
+#           digest = core.RuntimeRef { expr = "actions.${name}.outputs.digest" }
 #       }
 #
 #   schema Push(core.Action):
-#       outputs: PushOutputs = PushOutputs { owner = name }
+#       mixin [PushOutputsMixin]
+#       outputs?: PushOutputs
 #
 # Users navigate `push.outputs.digest` — real schema fields, jump
-# works, a typo is an eval error. The address is built by the schema
-# itself from `owner` (lazily bound to the final instance name) —
-# nothing to wire, nothing to drift.
+# works, a typo is an eval error. The mixin builds addresses from the
+# host's `name` directly; no owner concept exists. Mixins are the
+# designated wiring slot — the codegen milestone generates them from
+# the pure schemas.
 
 import regex
 
@@ -33,16 +39,21 @@ schema RetryPolicy:
         backoffSeconds >= 0
 
 schema Outputs:
-    """Base of plugin-declared outputs schemas. Fields are RuntimeRef
-    with lazy address defaults over `owner` (the action instance
-    name). The schema is also the codegen target for the struct the
-    executor fills at runtime."""
-    owner: str
+    """Marker base of plugin-declared outputs schemas. Fields are
+    RuntimeRef; addresses are wired by the plugin's outputs mixin from
+    the host action's name. The schema is pure — it is also the
+    codegen target for the struct the executor fills at runtime."""
 
 schema Artifacts:
-    """Base of plugin-declared artifacts schemas; fields are
-    ArtifactRef with lazy address defaults over `owner`."""
-    owner: str
+    """Marker base of plugin-declared artifacts schemas; fields are
+    ArtifactRef, wired by the plugin's artifacts mixin."""
+
+protocol ActionProtocol:
+    """Host type for plugin output/artifact mixins: gives a mixin
+    access to the action instance's name and contract slots."""
+    name: str
+    outputs?: Outputs
+    artifacts?: Artifacts
 
 schema Action:
     """Core of every action. Concrete actions are plugin schemas
@@ -62,5 +73,4 @@ schema Action:
         all c in requires { regex.match(c, _CAP_RE) }, "invalid capability name in requires of ${name}"
         all c in grants { regex.match(c, _CAP_RE) }, "invalid capability name in grants of ${name}"
         timeoutSeconds > 0
-        outputs.owner == name if outputs, "action ${name}: outputs.owner must equal the action name"
-        artifacts.owner == name if artifacts, "action ${name}: artifacts.owner must equal the action name"
+
