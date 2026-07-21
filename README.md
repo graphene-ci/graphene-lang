@@ -30,7 +30,7 @@ This repository owns everything that makes that model work as the system's
 | `resource.pkl` | `Resource` — the executor of a role: `EphemeralResource` (provider + hardware, run-scoped) and `PersistentClaim` (registry entry claim) |
 | `provider.pkl` | `Provider` base (plugin point): `kind` discriminator, `create`/`connect` modes, capability baseline |
 | `job.pkl` | `Job`: host binding, dependency edges with start conditions (`success`/`failure`/`always`), per-host capability accounting |
-| `action.pkl` | `Action` base (plugin point): timeout/retry, requires/grants; published contract (outputs/artifacts) declared ONCE as typed hidden fields and derived via reflection — no listing to drift |
+| `action.pkl` | `Action` base (plugin point): timeout/retry, requires/grants; published contract declared once per output as `outX = output("x")` fields; declared sets derived, field name verified against wire name — drift unrepresentable |
 | `values.pkl` | Value binding: `SecretRef`, `RuntimeRef`, `ArtifactRef` — deferred references rendered as placeholders |
 | `capability.pkl` | Capability names (definitions are capability plugins) |
 | `observability.pkl` | Sinks (plugin point) and routing declaration surface |

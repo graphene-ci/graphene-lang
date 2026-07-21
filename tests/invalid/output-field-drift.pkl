@@ -1,7 +1,7 @@
-/// Invariant 5 (publication discipline): two typed output fields must
-/// not publish under the same runtime name — the derived outputs set
-/// is constrained distinct.
-module tests.invalid.duplicateOutputNames
+/// Invariant 5 (publication discipline): an output field whose name
+/// does not match its wire name (`outX` <-> output("x")) fails eval —
+/// navigation surface and runtime name may not drift.
+module tests.invalid.outputFieldDrift
 
 extends "../../core/template.pkl"
 
@@ -11,10 +11,10 @@ import "../../core/job.pkl"
 import "../../core/values.pkl"
 import "../support/testkit.pkl"
 
-/// Plugin-author mistake: both fields claim runtime name "digest".
+/// Plugin-author mistake: field `outSum` claims wire name "digest".
 class BrokenAction extends testkit.TestAction {
-  hidden outDigest: values.RuntimeRef = output("digest")
-  hidden outSum: values.RuntimeRef = output("digest")
+  outDigest = output("digest")
+  outSum = output("digest")
 }
 
 res: resource.EphemeralResource = new {

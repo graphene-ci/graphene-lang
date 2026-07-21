@@ -41,6 +41,7 @@ defines the typed model and its generated bindings.
 - `module.input(...)` is the only input-reading path; raw `read()` in
   core or fixtures is a defect (hermetic eval).
 
-- Published contract convention: one typed hidden field per
-  output/artifact (`hidden outX = output("x")`); the declared sets are
-  reflection-derived in `action.pkl`. Never add a parallel listing.
+- Published contract convention: one field per output/artifact
+  (`outX = output("x")`, `artY = artifact("y")`); declared sets are
+  derived from the fields and the field name is verified against the
+  wire name. Never add a parallel listing.

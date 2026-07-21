@@ -8,24 +8,21 @@
 /// typed schema (subclasses).
 ///
 /// PUBLISHED CONTRACT — single-declaration convention: a concrete
-/// action class declares each output/artifact as ONE typed hidden
-/// field:
+/// action class declares each output/artifact as ONE field:
 ///
 ///   class Push extends DockerAction {
-///     hidden outDigest: values.RuntimeRef = output("digest")
-///     hidden artLog: values.ArtifactRef = artifact("build-log")
+///     outDigest = output("digest")
+///     artLog = artifact("log")
 ///   }
 ///
-/// Users reference `push.outDigest` — IDE-navigable, a typo is an eval
-/// error. There is no separate outputs/artifacts listing to keep in
-/// sync: the declared sets are DERIVED from these fields via
-/// reflection, so a mismatch is unrepresentable. The field name is
-/// pure navigation surface; the string passed to the factory is the
-/// runtime name.
+/// Users reference `push.outDigest` — IDE-navigable; a typo is an eval
+/// error. The declared sets (outputs/artifacts) are DERIVED from these
+/// fields, and the wire name is VERIFIED against the field name
+/// (`outDigest` -> "digest", `artLog` -> "log"), so drift between the
+/// navigation surface and the runtime name is unrepresentable.
 @ModuleInfo { minPklVersion = "0.32.0" }
 module graphene.core.action
 
-import "pkl:reflect"
 import "capability.pkl"
 import "values.pkl"
 
@@ -38,6 +35,11 @@ class RetryPolicy {
   attempts: Int(isPositive) = 1
   backoff: Duration = 10.s
 }
+
+/// "outDigest" -> "digest", "artBuildLog" -> "buildLog".
+local function wireName(field: String, prefix: String): String =
+  let (bare = field.drop(prefix.length))
+    bare.take(1).toLowerCase() + bare.drop(1)
 
 abstract class Action {
   name: Name
@@ -52,31 +54,37 @@ abstract class Action {
   requires: Listing<capability.CapabilityName>
   grants: Listing<capability.CapabilityName>
 
-  /// Factory for a typed output reference (see module doc; called only
-  /// in field declarations of concrete action classes).
+  /// Factory for a typed output reference (used only in `outX = ...`
+  /// field declarations of concrete action classes).
   function output(o: String): values.RuntimeRef =
     new { expr = "actions.\(name).outputs.\(o)" }
 
-  /// Factory for a typed artifact reference (see module doc).
+  /// Factory for a typed artifact reference (`artX = ...` fields).
   function artifact(a: String): values.ArtifactRef =
     new { expr = "actions.\(name).artifacts.\(a)" }
 
   // --- derived published contract (no second declaration to drift) ---
 
-  hidden fieldsOfType = (t: Class) ->
-    reflect.Class(this.getClass()).allProperties.values
-      .filter((p) ->
-        p.type is reflect.DeclaredType &&
-        (p.type as reflect.DeclaredType).referent.reflectee == t)
-      .map((p) -> p.name)
+  /// (field name, deferred ref) pairs of this instance, by ref class.
+  hidden refFields = (t: Class) ->
+    this.toMap().filter((_k, v) -> v.getClass() == t)
 
-  /// Declared runtime outputs, derived from RuntimeRef fields.
-  hidden outputs: List<String>(isDistinct) =
-    fieldsOfType.apply(values.RuntimeRef)
-      .map((n) -> (this.getProperty(n) as values.RuntimeRef).expr.split(".").last)
+  /// Declared runtime outputs, derived from `outX` fields; each field
+  /// must be named `out<WireName>` and its wire name must match.
+  hidden outputs: List<String> =
+    refFields.apply(values.RuntimeRef).entries.map((e) ->
+      let (field = e.key)
+      let (wire = (e.value as values.RuntimeRef).expr.split(".").last)
+        if (field != "out" + wire.take(1).toUpperCase() + wire.drop(1))
+          throw("action `\(name)`: output field `\(field)` must be named `out\(wire.take(1).toUpperCase() + wire.drop(1))` to match output(\"\(wire)\") — field name and wire name may not drift")
+        else wire)
 
-  /// Declared artifacts, derived from ArtifactRef fields.
-  hidden artifacts: List<String>(isDistinct) =
-    fieldsOfType.apply(values.ArtifactRef)
-      .map((n) -> (this.getProperty(n) as values.ArtifactRef).expr.split(".").last)
+  /// Declared artifacts, derived from `artX` fields, same rule.
+  hidden artifacts: List<String> =
+    refFields.apply(values.ArtifactRef).entries.map((e) ->
+      let (field = e.key)
+      let (wire = (e.value as values.ArtifactRef).expr.split(".").last)
+        if (field != "art" + wire.take(1).toUpperCase() + wire.drop(1))
+          throw("action `\(name)`: artifact field `\(field)` must be named `art\(wire.take(1).toUpperCase() + wire.drop(1))` to match artifact(\"\(wire)\") — field name and wire name may not drift")
+        else wire)
 }
