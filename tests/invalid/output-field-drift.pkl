@@ -8,13 +8,19 @@ extends "../../core/template.pkl"
 import "../../core/resource.pkl"
 import "../../core/host.pkl"
 import "../../core/job.pkl"
+import "../../core/action.pkl"
 import "../../core/values.pkl"
 import "../support/testkit.pkl"
 
 /// Plugin-author mistake: field `sum` claims wire name "digest".
+class BrokenOutputs extends action.Outputs {
+  sum: values.RuntimeRef
+}
+
 class BrokenAction extends testkit.TestAction {
-  digest = output("digest")
-  sum = output("digest")
+  outputs: BrokenOutputs = let (o = mkOutput) new {
+    sum = o.apply("digest")
+  }
 }
 
 res: resource.EphemeralResource = new {

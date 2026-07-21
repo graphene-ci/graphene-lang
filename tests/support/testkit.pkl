@@ -22,20 +22,38 @@ open class TestAction extends action.Action {
   env: Mapping<String, values.Value>
 }
 
-/// Action with a typed output — the mandatory plugin convention:
-/// outputs are exposed as hidden typed fields so users write
-/// `startCluster.endpoint` (IDE-navigable; a typo is an eval
-/// error), never the stringly `output("...")` factory.
+/// Typed outputs contract — the plugin convention: outputs are a real
+/// class; users write `startCluster.outputs.endpoint` (IDE-navigable,
+/// typo = type error). The class is the codegen target the executor
+/// fills at runtime.
+class ClusterStartOutputs extends action.Outputs {
+  endpoint: values.RuntimeRef
+}
+
 class ClusterStart extends TestAction {
-  endpoint = output("endpoint")
+  outputs: ClusterStartOutputs = let (o = mkOutput) new {
+    endpoint = o.apply("endpoint")
+  }
 }
 
-/// Action with a typed artifact, same convention.
+/// Typed artifacts contract, same convention.
+class SuiteRunArtifacts extends action.Artifacts {
+  report: values.ArtifactRef
+}
+
 class SuiteRun extends TestAction {
-  report = artifact("report")
+  artifacts: SuiteRunArtifacts = let (a = mkArtifact) new {
+    report = a.apply("report")
+  }
 }
 
-/// Artifact-publishing cleanup helper, same typed-field convention.
+/// Artifact-publishing cleanup helper, same convention.
+class LogCollectArtifacts extends action.Artifacts {
+  logs: values.ArtifactRef
+}
+
 class LogCollect extends TestAction {
-  logs = artifact("logs")
+  artifacts: LogCollectArtifacts = let (a = mkArtifact) new {
+    logs = a.apply("logs")
+  }
 }

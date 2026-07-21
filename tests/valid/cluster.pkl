@@ -59,7 +59,7 @@ prepare: job.Job = new {
 }
 
 // Actions with published contracts live as named top-level values:
-// consumers reference typed fields directly (startCluster.endpoint) —
+// consumers reference typed fields directly (startCluster.outputs.endpoint) —
 // IDE-navigable, a typo is an eval error.
 startCluster: testkit.ClusterStart = new {
   name = "start-cluster"
@@ -76,7 +76,7 @@ runSuite: testkit.SuiteRun = new {
   cmd = "pytest"
   requires { "bash" }
   env {
-    ["ENDPOINT"] = startCluster.endpoint
+    ["ENDPOINT"] = startCluster.outputs.endpoint
   }
 }
 

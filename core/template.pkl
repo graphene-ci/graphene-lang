@@ -80,8 +80,8 @@ local function renderModel(w: workflow.Workflow): Dynamic = new {
         // excluded from default rendering — re-attach explicitly
         actions = j.actions.toList().map((a) ->
           a.toDynamic().toMap()
-            .put("outputs", a.outputs)
-            .put("artifacts", a.artifacts))
+            .put("outputs", a.outputNames)
+            .put("artifacts", a.artifactNames))
       }
     }
   }

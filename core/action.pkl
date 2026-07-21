@@ -7,22 +7,23 @@
 /// artifacts). Concrete behavior and configuration are the plugin's
 /// typed schema (subclasses).
 ///
-/// PUBLISHED CONTRACT — single-declaration convention: a concrete
-/// action class declares each output/artifact as ONE field named
-/// exactly like the output:
+/// PUBLISHED CONTRACT — typed nested classes: a plugin declares its
+/// outputs/artifacts as real classes, and wires them in the action:
 ///
+///   class PushOutputs extends action.Outputs {
+///     digest: values.RuntimeRef
+///   }
 ///   class Push extends DockerAction {
-///     digest = output("digest")
-///     log = artifact("log")
+///     outputs: PushOutputs = let (o = mkOutput) new {
+///       digest = o.apply("digest")
+///     }
 ///   }
 ///
-/// Users reference `push.digest` — IDE-navigable; a typo is an eval
-/// error. The declared sets are DERIVED from these fields, and the
-/// field name must EQUAL the wire name (verified at eval), so drift
-/// between navigation surface and runtime name is unrepresentable.
-/// Outputs share the field namespace with the action's config —
-/// deliberate: config and results are attributes of one object, as in
-/// HCL resources.
+/// Users reference `push.outputs.digest` — a typed class field:
+/// IDE-navigable, a typo is a type error. The contract is a first-class
+/// TYPE (codegen target: the struct the executor fills). Declared wire
+/// names are DERIVED from the object, and each field name must EQUAL
+/// its wire name (verified at eval) — drift is unrepresentable.
 @ModuleInfo { minPklVersion = "0.32.0" }
 module graphene.core.action
 
@@ -39,6 +40,14 @@ class RetryPolicy {
   backoff: Duration = 10.s
 }
 
+/// Marker base of plugin-declared outputs classes (typed contracts of
+/// runtime outputs; fields are values.RuntimeRef).
+abstract class Outputs {}
+
+/// Marker base of plugin-declared artifacts classes (fields are
+/// values.ArtifactRef).
+abstract class Artifacts {}
+
 abstract class Action {
   name: Name
   description: String?
@@ -52,35 +61,32 @@ abstract class Action {
   requires: Listing<capability.CapabilityName>
   grants: Listing<capability.CapabilityName>
 
-  /// Factory for a typed output reference (used only in `x = output("x")`
-  /// field declarations of concrete action classes).
-  function output(o: String): values.RuntimeRef =
-    new { expr = "actions.\(name).outputs.\(o)" }
+  /// The action's published runtime outputs, as a typed object
+  /// (subclass of Outputs declared by the plugin). Null = no outputs.
+  outputs: Outputs?
 
-  /// Factory for a typed artifact reference (`y = artifact("y")` fields).
-  function artifact(a: String): values.ArtifactRef =
-    new { expr = "actions.\(name).artifacts.\(a)" }
+  /// The action's published artifacts, same convention.
+  artifacts: Artifacts?
 
-  // --- derived published contract (no second declaration to drift) ---
+  /// Factory injected into outputs wiring:
+  ///   outputs: PushOutputs = let (o = mkOutput) new { digest = o.apply("digest") }
+  hidden mkOutput: (String) -> values.RuntimeRef =
+    (o) -> new values.RuntimeRef { expr = "actions.\(name).outputs.\(o)" }
 
-  /// (field name, deferred ref) pairs of this instance, by ref class.
-  hidden refFields = (t: Class) ->
-    this.toMap().filter((_k, v) -> v.getClass() == t)
+  /// Factory for artifact wiring, same shape.
+  hidden mkArtifact: (String) -> values.ArtifactRef =
+    (a) -> new values.ArtifactRef { expr = "actions.\(name).artifacts.\(a)" }
 
-  /// Declared runtime outputs, derived from RuntimeRef fields; the
-  /// field name must equal the wire name.
-  hidden outputs: List<String> =
-    refFields.apply(values.RuntimeRef).entries.map((e) ->
-      let (wire = (e.value as values.RuntimeRef).expr.split(".").last)
+  // --- derived published contract (wire names from the typed objects) ---
+
+  hidden wireNames = (obj: Typed?, what: String) ->
+    if (obj == null) List()
+    else obj.toMap().entries.map((e) ->
+      let (wire = (e.value as values.ValueRef).expr.split(".").last)
         if (e.key != wire)
-          throw("action `\(name)`: output field `\(e.key)` must equal its wire name `\(wire)` (write `\(wire) = output(\"\(wire)\")`)")
+          throw("action `\(name)`: \(what) field `\(e.key)` must equal its wire name `\(wire)` — field name and wire name may not drift")
         else wire)
 
-  /// Declared artifacts, derived from ArtifactRef fields, same rule.
-  hidden artifacts: List<String> =
-    refFields.apply(values.ArtifactRef).entries.map((e) ->
-      let (wire = (e.value as values.ArtifactRef).expr.split(".").last)
-        if (e.key != wire)
-          throw("action `\(name)`: artifact field `\(e.key)` must equal its wire name `\(wire)` (write `\(wire) = artifact(\"\(wire)\")`)")
-        else wire)
+  hidden outputNames: List<String> = wireNames.apply(outputs, "output")
+  hidden artifactNames: List<String> = wireNames.apply(artifacts, "artifact")
 }
