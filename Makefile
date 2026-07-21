@@ -1,41 +1,52 @@
 .DEFAULT_GOAL := help
 
 # --- pinned tool versions (bumps are explicit commits) ---
-PKL_VERSION := 0.32.0
+KCL_VERSION := v0.12.7
+KCL_LSP_VERSION := v0.11.2
 
 UNAME_S := $(shell uname -s | tr A-Z a-z)
 UNAME_M := $(shell uname -m)
 ifeq ($(UNAME_M),x86_64)
-  PKL_ARCH := amd64
+  KCL_ARCH := amd64
 else
-  PKL_ARCH := aarch64
+  KCL_ARCH := arm64
 endif
 ifeq ($(UNAME_S),darwin)
-  PKL_OS := macos
+  KCL_OS := darwin
 else
-  PKL_OS := linux
+  KCL_OS := linux
 endif
 
 BIN := bin
-PKL := $(BIN)/pkl
+KCL := $(BIN)/kcl
+KCL_LSP := $(BIN)/kcl-language-server
 
 .PHONY: configure
-configure: $(PKL) ## Set up a working environment from scratch (tools go to bin/)
+configure: $(KCL) $(KCL_LSP) ## Set up a working environment from scratch (tools go to bin/)
 
-$(PKL):
+$(KCL):
 	@mkdir -p $(BIN)
-	curl -fsSL -o $(PKL) \
-	  https://github.com/apple/pkl/releases/download/$(PKL_VERSION)/pkl-$(PKL_OS)-$(PKL_ARCH)
-	chmod +x $(PKL)
-	$(PKL) --version
+	curl -fsSL -o $(BIN)/kcl.tgz \
+	  https://github.com/kcl-lang/cli/releases/download/$(KCL_VERSION)/kcl-$(KCL_VERSION)-$(KCL_OS)-$(KCL_ARCH).tar.gz
+	tar xzf $(BIN)/kcl.tgz -C $(BIN) kcl
+	rm $(BIN)/kcl.tgz
+	$(KCL) version
+
+$(KCL_LSP):
+	@mkdir -p $(BIN)
+	curl -fsSL -o $(BIN)/kclvm.tgz \
+	  https://github.com/kcl-lang/kcl/releases/download/$(KCL_LSP_VERSION)/kclvm-$(KCL_LSP_VERSION)-$(KCL_OS)-$(KCL_ARCH).tar.gz
+	tar xzf $(BIN)/kclvm.tgz -C $(BIN) --strip-components=2 kclvm/bin/kcl-language-server
+	rm $(BIN)/kclvm.tgz
+	$(KCL_LSP) version
 
 .PHONY: test
-test: $(PKL) ## Run schema tests (valid fixtures must eval, invalid must fail)
+test: $(KCL) ## Run schema tests (valid fixtures must eval, invalid must fail)
 	./scripts/test.sh
 
 .PHONY: eval
-eval: $(PKL) ## Eval a workflow file: make eval FILE=path/to/workflow.pkl
-	$(PKL) eval $(FILE)
+eval: $(KCL) ## Eval a workflow file: make eval FILE=path/to/workflow.k
+	$(KCL) run $(FILE)
 
 .PHONY: clean
 clean: ## Remove downloaded tools
